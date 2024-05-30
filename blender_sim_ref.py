@@ -275,6 +275,7 @@ def render(dir):
 # Argument Parser -------------------------------------------------------------------------------------
 def parse_args():
     parser = argparse.ArgumentParser(description='Process parameters for Blender simulation.')
+    parser.add_argument('--track_num', required=True, help='Track number')
     parser.add_argument('--ref_file', required=True, help='Directory to save tracking data')
     parser.add_argument('--meta_file', required=True, help='Path to the metadata file')
     parser.add_argument('--scale', required=True, type=float, help='Scale factor for blender distances')
@@ -290,20 +291,12 @@ if __name__ == "__main__":
     args = parse_args()
     
     # Save all arguments as variables
+    track_num = args.track_num
     ref_file = args.ref_file
     meta_file = args.meta_file
     scale = args.scale
     metallic = args.metallic
     roughness = args.roughness
-    
-    # Print arguments
-    print('************************************')
-    print('ARGUMENTS')
-    print(f'Reference File: {ref_file}')
-    print(f"Metadata Path: {meta_file}")
-    print(f"Metallic: {metallic}")
-    print(f"Roughness: {roughness}")
-    print('************************************')
 
     # Constants ------------------------------------------------------------------------------------------
     Re = 6378*scale  # 6378 in km 
@@ -325,5 +318,5 @@ if __name__ == "__main__":
     render(ref_file)
 
     # Finish
-    print("Finished rendering reference image.")
+    print(f'*** Reference Image Generated for Track {track_num}. ***')
     bpy.ops.wm.quit_blender()  # Exit Blender after rendering

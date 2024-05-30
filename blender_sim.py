@@ -290,6 +290,7 @@ def render(dir, num_frames):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Process parameters for Blender simulation.')
+    parser.add_argument('--track_num', required=True, help='Track number')
     parser.add_argument('--obj_path', required=True, help='Path to the .stl file to be imported')
     parser.add_argument('--meta_file', required=True, help='Path to the metadata file')
     parser.add_argument('--frames_dir', required=True, help='Directory to save frame images')
@@ -310,6 +311,7 @@ if __name__ == "__main__":
     args = parse_args()
     
     # Save all arguments as variables
+    track_num = args.track_num
     obj_path = args.obj_path
     meta_file = args.meta_file
     frames_dir = args.frames_dir
@@ -320,32 +322,21 @@ if __name__ == "__main__":
     spin_x = args.spin_x
     spin_y = args.spin_y
     spin_z = args.spin_z
-    
-    # Print arguments
-    print('************************************')
-    print('ARGUMENTS')
-    print(f"Object File Path: {obj_path}")
-    print(f"Metadata Path: {meta_file}")
-    print(f"Save Location: {frames_dir}")
-    print(f"Metallic: {metallic}")
-    print(f"Roughness: {roughness}")
-    print('Spin Rates:', spin_x, spin_y, spin_z)
-    print('************************************')
 
     # Constants
     Re = 6378*scale  # 6378 in km 
     spin_state = (spin_x,spin_y,spin_z)  # (x, y, z) spin rates [radians/second]
     #Camera parameters
-    cam_long = radians(41.4)
-    cam_lat = radians(43.8)
-    H = (2030/1000)*scale #km scaled
+    # cam_long = radians(41.4)
+    # cam_lat = radians(43.8)
+    # H = (2030/1000)*scale #km scaled
     focal_length = 5 #mm`
 
     # Import positions and angles
     obj_pos_list, sun_pos, cam_pos, zenith = read_positions(positions_file, meta_file)
-    num_frames = 5 #len(obj_pos_list) # Adjust the number of frames as needed
+    num_frames = 50 #len(obj_pos_list) # Adjust the number of frames as needed
     scene.frame_end = num_frames
-    print('Positions: ', len(obj_pos_list))
+    # print('Positions: ', len(obj_pos_list))
 
     # Blender environment initialization
     initialize_env()
@@ -360,5 +351,5 @@ if __name__ == "__main__":
     render(frames_dir, num_frames)
 
     # Finish
-    print("Finished rendering key frames.")
+    print(f'*** Frame Images Generated for Track {track_num}. ***')
     bpy.ops.wm.quit_blender()  # Exit Blender after rendering

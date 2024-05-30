@@ -9,15 +9,33 @@ import os
 import sys
 import random
 from math import pi
+import time
 
 def run_command(cmd):
     try:
-        # Run the command with a timeout
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        print(result.stdout)
-        print(result.stderr)
+        # Start the subprocess
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        # Read the output line by line as it is produced
+        while True:
+            output = process.stdout.readline()
+            if output == "" and process.poll() is not None:
+                break
+            if output:
+                print(output.strip())
+
+        # Read the remaining stderr after the process ends
+        stderr = process.stderr.read()
+        if stderr:
+            print(stderr.strip())
+
+        # Check for any errors
+        rc = process.poll()
+        if rc != 0:
+            raise subprocess.CalledProcessError(returncode=rc, cmd=cmd, output=stderr)
+
     except subprocess.CalledProcessError as e:
-        print(f"Command failed with error: {e.stderr}")
+        print(f"Command failed with error: {e.output}")
     except subprocess.TimeoutExpired:
         print("Command timed out")
     except Exception as e:
@@ -30,6 +48,8 @@ def create_directory(dir_name):
     
     # Construct the full path for the new directory
     dir_path = script_dir + dir_name
+
+    dir_path = dir_name # <--------- For saving to external drive
 
     try:
         os.makedirs(dir_path, exist_ok=True)
@@ -44,14 +64,13 @@ scale_blender = 1/100
 scale_orekit = 1/100000
 so_bank = './objects'
 
+track_num = 4
+while track_num < 5:
 
-track_num = 1
-while track_num < 2:
-
-    # Randomze parameters
+    # Randomize parameters
     random_num = 1
     tle_file = f"./TLEs/tle_info{random_num}.txt"
-    obj_name = '/antenna_1.stl'
+    obj_name = '/panel_1.stl'
     obj_path = so_bank + obj_name
     cross_sect = 0.1  # Cross section of satellite in m^2
     mass = 10.0 # Mass of satellite in kg
@@ -61,33 +80,36 @@ while track_num < 2:
     metallic = 1
 
     # Randomize attitude regime and spin rates
-    regime = random.choice(['STABLE', 'TUMBLING'])
+    # regime = random.choice(['STABLE', 'TUMBLING'])
+    regime = 'TUMBLING'
     spin_x = 2*pi
     spin_y = 2*pi
     spin_z = 2*pi
 
-    
     # Create directory for new track
-    '''
-    track_directory = f'/data/track_{track_num}/'
+    # track_directory = f'~/scripts/obj_sim/data/track_{track_num}/'
+    track_directory = f'/media/anne/Expansion/sim_data/track_{track_num}/'
+
     frames_file_path = track_directory + 'frames/'
     create_directory(track_directory)
     create_directory(frames_file_path)
-    '''
+    
     # Paths to pass 
-    track_directory = f'./data/track_{track_num}/'
-    frames_file_path = track_directory + 'frames/'
     ref_file = track_directory + 'reference_image'
     positions_file = track_directory + "obj_positions.txt"
     meta_file = track_directory + "metadata.txt"
     topo_data_file = track_directory + "topodata.txt"
     lc_plot_file = track_directory + f"lc_plot_{track_num}.png"
     lc_track_file = track_directory + f"lc_track_{track_num}.txt"
+    lc_plot_noise_file = track_directory + f"lc_plot_noise_{track_num}.png"
     
+    # Start time
+    start_time = time.time()
+
     # Run orbit propagator
-    '''   
     cmd = [
             'python', 'tle_propagator.py', 
+            '--track_num', str(track_num),
             '--track_dir', str(track_directory),
             '--obj_name', str(obj_name),
             '--obj_path', str(obj_path),
@@ -107,10 +129,11 @@ while track_num < 2:
           ]
     run_command(cmd)
     
-
+    
     #Run blender simulation with object import
     cmd = [
         'blender', '-P', 'blender_sim.py', '--',
+        '--track_num', str(track_num),
         '--obj_path', str(obj_path),
         '--meta_file', str(meta_file),
         '--frames_dir', str(frames_file_path),
@@ -128,19 +151,23 @@ while track_num < 2:
     # Run blender simulation for reference object
     cmd = [
         'blender', '-P', 'blender_sim_ref.py', '--',
+        '--track_num', str(track_num),
         '--ref_file', str(ref_file),
         '--meta_file', str(meta_file),
         '--scale', str(scale_blender),
         '--metallic', str(metallic),
         '--roughness', str(roughness),
     ]
-    ref_file = ref_file + '.png'
+    
     run_command(cmd)
-    '''
+    
     ref_file = ref_file + '.png'
+
     # Calculate Magnitudes for light curve
     cmd = [
         'python', 'calculate_magnitudes.py',
+        '--track_num', str(track_num),
+        '--regime', str(regime),
         '--ref_file', str(ref_file),
         '--topo_data_file', str(topo_data_file),
         '--lc_plot_file', str(lc_plot_file),
@@ -148,11 +175,13 @@ while track_num < 2:
         '--frames_dir', str(frames_file_path),
         '--meta_file', str(meta_file),
         '--cr', str(cr),
-        '--scale', str(scale_blender),
-
+        '--scale', str(scale_orekit),
     ]
     run_command(cmd)
 
+    end_time = time.time()
+    print(f"Track {track_num} completed in {(end_time - start_time)/60.0} minutes.")
 
-    sys.exit()
+    run_command(['blender','--quit'])
+
     track_num += 1

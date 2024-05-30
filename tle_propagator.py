@@ -54,7 +54,7 @@ from org.orekit.time import AbsoluteDate
 from org.orekit.utils import Constants
 from org.orekit.propagation.events.handlers import ContinueOnEvent
 
-from math import radians, degrees, atan, tan, sqrt, pi, sin, cos
+from math import radians, degrees, atan, tan, sqrt, pi, sin, cos, acos
 import argparse
 import random
 import pandas as pd
@@ -245,7 +245,7 @@ def getZenithFromGS(gs1_frame, epoch, inertial_frame, scale):
     zenithPt_inertial_pos = topo_to_gcrf.transformPVCoordinates(zenith_topo_pv).getPosition()
 
     #Calculate the zenith unit vector in inertial frame
-    unitV_zenith_inertial = zenithPt_inertial_pos.subtract(origin_inertial_pos)
+    unitV_zenith_inertial = origin_inertial_pos.subtract(zenithPt_inertial_pos)
 
     #Normalize the vector - technically it should already be normalized
     norm_unitV = Vector.cast_(unitV_zenith_inertial).normalize()
@@ -286,8 +286,19 @@ def get_range(pv_obj):
 
     return sqrt(x**2 + y**2 + z**2)
 
+def get_phase_angle(obj_pv, sun_pv, obj_range, sun_range):
+    obj_pos = obj_pv.getPosition()
+    sun_pos = sun_pv.getPosition()
+
+    dot = Vector3D.dotProduct(obj_pos, sun_pos)
+
+    phase_angle = degrees(acos(dot/(obj_range*sun_range)))
+
+    return phase_angle
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Process satellite parameters for TLE propagation.')
+    parser.add_argument('--track_num', required=True, help='Track number')
     parser.add_argument('--track_dir', required=True, help='Directory to save tracking data')
     parser.add_argument('--obj_name', required=True, help='Name of the object')
     parser.add_argument('--obj_path', required=True, help='Path to the object stl file')
@@ -311,6 +322,7 @@ if __name__ == "__main__":
     args = parse_args()
     
     # Read in Arguments ---------------------------------
+    track_num = args.track_num
     track_dir = args.track_dir
     obj_name = args.obj_name
     obj_path = args.obj_path
@@ -479,11 +491,13 @@ if __name__ == "__main__":
         elevation = degrees(castedMeasurements.getObservedValue()[1])
         event_epoch = castedMeasurements.getDate()
 
-        # Calculate range
+        # Calculate ranges
         pv_object_topo = propagator.getPVCoordinates(event_epoch, gs1_frame)
-        range_m = get_range(pv_object_topo)
-        topo_data = str(f'Epoch: {event_epoch}, Azimuth: {azimuth}, Elevation: {elevation}, Range: {range_m}')
-        
+        pv_sun_topo = sun.getPVCoordinates(event_epoch, gs1_frame)
+        range_obj = get_range(pv_object_topo)
+        range_sun = get_range(pv_sun_topo)
+        phase_angle = get_phase_angle(pv_object_topo, pv_sun_topo, range_obj, range_sun)
+        topo_data = str(f'Epoch: {event_epoch}, Azimuth: {azimuth}, Elevation: {elevation}, Range: {range_obj}, Phase: {phase_angle}')
 
         pv_object = propagator.getPVCoordinates(event_epoch, inertial_frame)
         pv_sun = sun.getPVCoordinates(event_epoch, inertial_frame)
@@ -492,7 +506,7 @@ if __name__ == "__main__":
         coord_sun = getPositionCoord(pv_sun, scale)
 
         if first:
-            print(topo_data)
+            # print(topo_data)
             pv_sun = sun.getPVCoordinates(event_epoch, inertial_frame)
             coord_sun = getPositionCoord(pv_sun, scale)
             
@@ -513,9 +527,6 @@ if __name__ == "__main__":
 
         # ****************Calculate phase angle here****************
 
-    print('cam_pos_vector: ', coord_gs1)
-    print('U_sun: ', u_sun)
-    print('Norm_dot_sun: ', norm_dot_sun)
 
     print('Measurements: ', data.size())
 
@@ -546,13 +557,14 @@ if __name__ == "__main__":
         file.write(f'Propagation End Epoch: {t1}\n')
 
     with open(topo_data_file, "w") as file:
-        file.write('Epoch Azimuth[deg] Elevation[deg] Range[m]\n')
+        file.write('Epoch Azimuth[deg] Elevation[deg] Range[m] Phase[deg]\n')
         for item in topo_data_list:
             info = item.split(', ')
             epoch = str(info[0].split(': ')[1])
             azimuth = float(info[1].split(': ')[1])
             elevation = float(info[2].split(': ')[1])
             range = float(info[3].split(': ')[1])
-            file.write("%s %s %s %s\n"% (epoch, azimuth, elevation, range))
+            phase = float(info[4].split(': ')[1])
+            file.write("%s %s %s %s %s\n"% (epoch, azimuth, elevation, range, phase))
 
-    print('done')
+    print(f'*** Positions Generated for Track {track_num}. ***')

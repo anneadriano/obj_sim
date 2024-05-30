@@ -1,0 +1,12 @@
+# Logs
+*.Logs
+
+# Operating system files
+.DS_Store
+
+# data files
+data/
+
+#orekit data
+orekit-data-master/
+
