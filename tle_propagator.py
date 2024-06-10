@@ -232,7 +232,7 @@ def getPositionCoord_gs(gs1_frame, epoch, inertial_frame, itrf_frame, scale):
     return '(%f, %f, %f)' % (x, y, z)
 
 def getZenithFromGS(gs1_frame, epoch, inertial_frame, scale):
-    #Greate transformation
+    #Create transformation
     topo_to_gcrf = gs1_frame.getTransformTo(inertial_frame, epoch)
     
     #Transform the origin of the topocentric frame to inertial frame
@@ -315,6 +315,7 @@ def parse_args():
     parser.add_argument('--cross_sect', required=True, type=float, help='Cross section of the satellite in m^2')
     parser.add_argument('--cd', required=True, type=float, help='Coefficient of drag')
     parser.add_argument('--cr', required=True, type=float, help='Coefficient of reflectivity')
+    parser.add_argument('--timestep', required=True, type=float, help='Timestep for scheduler in seconds')
     
     return parser.parse_args()
 
@@ -339,6 +340,7 @@ if __name__ == "__main__":
     cross_sect = args.cross_sect
     cd = args.cd
     cr = args.cr
+    timestep = args.timestep
     
     print('************************************')
     print('ARGUMENTS')
@@ -381,7 +383,6 @@ if __name__ == "__main__":
     inertial_frame = FramesFactory.getGCRF() #FramesFactory.getEME2000()
     itrf = FramesFactory.getITRF(IERSConventions.IERS_2010, True) # International Terrestrial Reference Frame, earth fixed
     sun = PVCoordinatesProvider.cast_(CelestialBodyFactory.getSun())
-    timestep = 0.1 # timestep in seconds for scheduler - must be float
     # ------------------------------------------------------------------------
 
     # Set up Space Object
@@ -476,8 +477,11 @@ if __name__ == "__main__":
     # Create Events Logger checks when object enters and exits field of view
     mylog = logger.getLoggedEvents()
     print('Logged Events: ', mylog.size())
-    for event in mylog:
-        print(event.getState().getDate())
+    for index, event in enumerate(mylog):
+        if index % 2 == 0:
+            print('Enter: ', event.getState().getDate())
+        else:
+            print('Exit: ', event.getState().getDate())
 
     ## Record results
     obj_pos_list = []

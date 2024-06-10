@@ -26,7 +26,7 @@ def initialize_env():
     scene = bpy.context.scene
 
 path = './objects/'
-file_name = 'rod_2.stl'
+file_name = 'cone_6.stl'
 
 initialize_env()
 bpy.ops.import_mesh.stl(filepath=path+file_name)

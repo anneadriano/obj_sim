@@ -4,6 +4,8 @@ import argparse
 import sys
 from math import radians, pi
 import mathutils
+import random
+import os
 scene = bpy.context.scene
 
 def enable_ambient_occlusion(scene, distance=1.0):
@@ -45,7 +47,7 @@ def enable_ambient_occlusion(scene, distance=1.0):
 
     return
 
-def initialize_env():
+def initialize_env(fps):
     
     # Set render engine to Cycles
     scene.render.engine = 'CYCLES'
@@ -66,7 +68,9 @@ def initialize_env():
     bpy.ops.object.delete()
 
     # Set the number of frames per second
-    scene.render.fps = 6
+    # 5 fps means 0.2s sampling frequency
+    # 10 fps means 0.1s sampling frequency
+    scene.render.fps = fps
 
     # Enable Ambient Occlusion - self-shadowing effect
     enable_ambient_occlusion(scene, distance=1.0)
@@ -89,9 +93,9 @@ def read_positions(positions_path, meta_file):
     cam_pos = meta_data[9].split(': ')[1].strip()
     sun_pos = meta_data[10].split(': ')[1].strip()
     zenith = meta_data[11].split(': ')[1].strip()
-    print('Zenith: ', zenith)
-    print('Sun: ', sun_pos)
-    print('Cam: ', cam_pos)
+    # print('Zenith: ', zenith)
+    # print('Sun: ', sun_pos)
+    # print('Cam: ', cam_pos)
 
     return obj_pos_list, sun_pos, cam_pos, zenith
 
@@ -168,16 +172,22 @@ def setup_earth(Re):
 
     return
 
-def import_obj(path, pos_list, roughness, metallic, num_frames, spin_state): #spin_state is a tuple of (x,y,z) spin rates
+def randomize_track_start(pos_list, num_frames):
+    int_range = range(0,len(pos_list)-num_frames)
+    start_index = random.choice(int_range)
+
+    return start_index
+
+def import_obj(path, pos_list, roughness, metallic, num_frames, spin_state, meta_file, ior, colour, material): 
     bpy.ops.import_mesh.stl(filepath=path) 
     # bpy.ops.mesh.primitive_cylinder_add(radius=0.5, depth=1)
     # bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='BOUNDS')
     # target = bpy.context.active_object
     # bpy.context.view_layer.objects.active = target
     target = bpy.context.selected_objects[0]
+    # target.scale = (scale, scale, scale)
     target.hide_viewport = False
     target.hide_render = False
-    # target.select_set(True)
     target.name = 'target'
 
     # Create a principled shader for the cube (basic setup)
@@ -190,25 +200,39 @@ def import_obj(path, pos_list, roughness, metallic, num_frames, spin_state): #sp
     if principled_shader:
         # principled_shader.location = (0, 0)
         # Set the roughness and metallic values directly on the Principled BSDF node
-        principled_shader.inputs["Roughness"].default_value = roughness
-        principled_shader.inputs["Metallic"].default_value = metallic
+        principled_shader.inputs["Roughness"].default_value = 0.1 #roughness
+        principled_shader.inputs["Metallic"].default_value = 0.8 #metallic
+        principled_shader.inputs['Base Color'].default_value = (0.002, 0.001, 0.012, 1.0) #colour
+        principled_shader.inputs["IOR"].default_value = 2.0 #ior
+    
+    if 'antenna' in path or  'cone' in path:
+        # Switch to object mode if not already
+        bpy.ops.object.mode_set(mode='OBJECT')
 
-    # Switch to object mode if not already
-    bpy.ops.object.mode_set(mode='OBJECT')
+        # Apply smooth shading
+        bpy.ops.object.shade_smooth()
 
-    # Apply smooth shading
-    bpy.ops.object.shade_smooth()
-
-    # Add a subdivision surface modifier
-    subdiv = target.modifiers.new(name="Subdivision", type='SUBSURF')
-    subdiv.levels = 3  # Viewport level
-    subdiv.render_levels = 3 # Render level
+        # Add a subdivision surface modifier
+        subdiv = target.modifiers.new(name="Subdivision", type='SUBSURF')
+        subdiv.levels = 3  # Viewport level
+        subdiv.render_levels = 3 # Render level
 
     # Calculate the delta rotation angle for each frame
     rot_angle_x = spin_state[0] / scene.render.fps
     rot_angle_y = spin_state[1] / scene.render.fps
     rot_angle_z = spin_state[2] / scene.render.fps
 
+    # Set start index
+    start_index = randomize_track_start(pos_list, num_frames)
+    
+    # Write start index of position list to metadata file
+    with open(meta_file, "a") as file:
+        file.write(f'Material: {material}\n')
+        file.write(f'Roughness: {roughness}\n')
+        file.write(f'Metallic: {metallic}\n')
+        file.write(f'Index of Refraction: {ior}\n')
+        file.write(f'Base Colour: r: {colour[0]}, g: {colour[1]}, b: {colour[2]}\n')
+        file.write(f"Position Start Index: {start_index}\n")
 
     # Create keyframes for rotation
     for frame in range(1, num_frames + 1):
@@ -216,7 +240,7 @@ def import_obj(path, pos_list, roughness, metallic, num_frames, spin_state): #sp
         target.rotation_euler = (rot_angle_x * frame, rot_angle_y * frame, rot_angle_z * frame)  # Adjust the rotation axis as needed
         target.keyframe_insert(data_path="rotation_euler", frame = frame)
 
-        coord = pos_list[frame-1]
+        coord = pos_list[start_index + frame-1]
         x = float(coord.split(',')[0][1:])
         y = float(coord.split(',')[1])
         z = float(coord.split(',')[2][:-1])
@@ -286,6 +310,7 @@ def render(dir, num_frames):
 
     return
 
+
 # Argument Parser -------------------------------------------------------------------------------------
 
 def parse_args():
@@ -301,6 +326,13 @@ def parse_args():
     parser.add_argument('--spin_x', required=True, type=float, help='x-axis spin rate in rad/s')
     parser.add_argument('--spin_y', required=True, type=float, help='y-axis spin rate in rad/s')
     parser.add_argument('--spin_z', required=True, type=float, help='z-axis spin rate in rad/s')
+    parser.add_argument('--n_frames', required=True, type=int, help='Number of frames to render')
+    parser.add_argument('--fps', required=True, type=int, help='Frames per second')
+    parser.add_argument('--material', required=True, help='Type of material')
+    parser.add_argument('--ior', required=True, type=float, help='Index of refraction')
+    parser.add_argument('--r', required=True, type=float, help='RGB value for the object color')
+    parser.add_argument('--g', required=True, type=float, help='RGB value for the object color')
+    parser.add_argument('--b', required=True, type=float, help='RGB value for the object color')
 
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
     return args
@@ -322,6 +354,14 @@ if __name__ == "__main__":
     spin_x = args.spin_x
     spin_y = args.spin_y
     spin_z = args.spin_z
+    num_frames = args.n_frames
+    fps = args.fps
+    material = args.material
+    ior = args.ior
+    r = args.r
+    g = args.g
+    b = args.b
+    colour = (r, g, b, 1.0)
 
     # Constants
     Re = 6378*scale  # 6378 in km 
@@ -334,13 +374,13 @@ if __name__ == "__main__":
 
     # Import positions and angles
     obj_pos_list, sun_pos, cam_pos, zenith = read_positions(positions_file, meta_file)
-    num_frames = 50 #len(obj_pos_list) # Adjust the number of frames as needed
     scene.frame_end = num_frames
     # print('Positions: ', len(obj_pos_list))
 
     # Blender environment initialization
-    initialize_env()
-    import_obj(obj_path, obj_pos_list, roughness, metallic, num_frames, spin_state)
+    print('initializing Blender environment...')
+    initialize_env(fps)
+    import_obj(obj_path, obj_pos_list, roughness, metallic, num_frames, spin_state, meta_file, ior, colour, material)
     setup_sun(sun_pos, scale)
     setup_earth(Re)
 
@@ -352,4 +392,5 @@ if __name__ == "__main__":
 
     # Finish
     print(f'*** Frame Images Generated for Track {track_num}. ***')
-    bpy.ops.wm.quit_blender()  # Exit Blender after rendering
+    
+    os._exit(0)

@@ -4,6 +4,7 @@ import argparse
 import sys
 from math import radians, pi
 import mathutils
+import os
 scene = bpy.context.scene
 def enable_ambient_occlusion(scene, distance=1.0):
     if scene.render.engine == 'CYCLES':
@@ -162,7 +163,7 @@ def setup_earth(Re):
 
     return
 
-def create_ref_obj(ref_pos, roughness, metallic, zenith):
+def create_ref_obj(ref_pos, roughness, metallic, zenith, ior, colour):
     
     x = float(ref_pos.split(',')[0][1:])
     y = float(ref_pos.split(',')[1]) 
@@ -173,7 +174,7 @@ def create_ref_obj(ref_pos, roughness, metallic, zenith):
     
     bpy.ops.mesh.primitive_cube_add(size=1, location=(x, y, z)) #placing object at a scaled altitude of 2000km
     ref = bpy.context.active_object
-    ref.dimensions = (1, 1, 1)
+    ref.dimensions = (1.0, 1.0, 1.0)
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
 
     ref.hide_viewport = False
@@ -193,6 +194,8 @@ def create_ref_obj(ref_pos, roughness, metallic, zenith):
         # Set the roughness and metallic values directly on the Principled BSDF node
         principled_shader.inputs["Roughness"].default_value = roughness
         principled_shader.inputs["Metallic"].default_value = metallic
+        principled_shader.inputs['Base Color'].default_value = colour
+        principled_shader.inputs["IOR"].default_value = ior
     
     # Rotate object
     target_normal = -mathutils.Vector((x_zenith, y_zenith, z_zenith))
@@ -281,6 +284,10 @@ def parse_args():
     parser.add_argument('--scale', required=True, type=float, help='Scale factor for blender distances')
     parser.add_argument('--metallic', required=True, type=float, help='Metallic property of the material')
     parser.add_argument('--roughness', required=True, type=float, help='Roughness of the material')
+    parser.add_argument('--ior', required=True, type=float, help='Index of refraction')
+    parser.add_argument('--r', required=True, type=float, help='RGB value for the object color')
+    parser.add_argument('--g', required=True, type=float, help='RGB value for the object color')
+    parser.add_argument('--b', required=True, type=float, help='RGB value for the object color')
 
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
     return args
@@ -297,6 +304,11 @@ if __name__ == "__main__":
     scale = args.scale
     metallic = args.metallic
     roughness = args.roughness
+    ior = args.ior
+    r = args.r
+    g = args.g
+    b = args.b
+    colour = (r,g,b,1.0)
 
     # Constants ------------------------------------------------------------------------------------------
     Re = 6378*scale  # 6378 in km 
@@ -307,7 +319,7 @@ if __name__ == "__main__":
 
     # Blender environment initialization
     initialize_env()
-    create_ref_obj(ref_pos, roughness, metallic, zenith)
+    create_ref_obj(ref_pos, roughness, metallic, zenith, ior, colour)
     setup_sun(sun_pos, scale)
     setup_earth(Re)
 
@@ -319,4 +331,4 @@ if __name__ == "__main__":
 
     # Finish
     print(f'*** Reference Image Generated for Track {track_num}. ***')
-    bpy.ops.wm.quit_blender()  # Exit Blender after rendering
+    os._exit(0)

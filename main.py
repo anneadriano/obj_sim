@@ -11,6 +11,124 @@ import random
 from math import pi
 import time
 
+class object_params:
+    def __init__(self, regime, shape):
+        self.regime = regime
+        self.shape = shape
+
+    def update_properties(self): 
+        antennas = ['antenna_1.stl', 'antenna_2.stl', 'antenna_3.stl']
+        busses = ['bus_1.stl', 'bus_2.stl', 'bus_3.stl']
+        cones = ['cone_1.stl', 'cone_2.stl', 'cone_3.stl']
+        panels = ['panel_1.stl', 'panel_2.stl', 'panel_3.stl']
+        rods = ['rod_1.stl', 'rod_2.stl', 'rod_3.stl']  
+
+        # Shape properties
+        # Conditions for reflector shape
+        if self.shape in antennas:
+            self.material = 'SPECULAR'
+            self.mass = random.uniform(5.0, 10.0)
+            self.cd = random.uniform(0.01,0.25)
+            if self.shape == antennas[0]:
+                self.cross_sect = 0.5
+            elif self.shape == antennas[1]:
+                self.cross_sect = 1.0
+            else:
+                self.cross_sect = 1.5
+
+        # Conditions for panel shape
+        elif self.shape in panels:
+            self.material = random.choice(['SPECULAR', 'DIFFUSE', 'SOLAR'])
+            self.mass = random.uniform(1.0, 5.0)
+            self.cd = random.uniform(0.01,0.25)
+            if self.shape == panels[0]:
+                self.cross_sect = 0.3
+            elif self.shape == panels[1]:
+                self.cross_sect = 1.5
+            else:
+                self.cross_sect = 6.5
+
+        #Other shape categories (bus, rod, cone)
+        else:
+            self.material = 'DIFFUSE'
+            if self.shape in busses:
+                self.cd = 0.03
+                if self.shape == busses[0]:
+                    self.cross_sect = 0.01
+                    self.mass = 1.5
+                elif self.shape == busses[1]:
+                    self.cross_sect = 1.3
+                    self.mass = 100.0
+                elif self.shape == busses[2]:
+                    self.cross_sect = 5.2
+                    self.mass = 1000.0
+            else:
+                self.mass = random.uniform(0.5, 10.0)
+                self.cd = 0.08
+                if self.shape == cones[0]:
+                    self.cross_sect = 0.1
+                elif self.shape == cones[1]:
+                    self.cross_sect = 0.15
+                elif self.shape == cones[2]:
+                    self.cross_sect = 0.23
+                elif self.shape == rods[0]:
+                    self.cross_sect = 0.01
+                elif self.shape == rods[1]:
+                    self.cross_sect = 0.09
+                else:
+                    self.cross_sect = 0.3
+
+        # Material properties
+        if self.material == 'SPECULAR':
+            self.colour = [0.6, 0.6, 0.6]
+            self.roughness = 0.05
+            self.metallic = 0.8
+            self.rho_tot = 0.1
+            self.ior = 2.0
+            self.cr = 1.7
+        elif self.material == 'DIFFUSE':
+            self.colour = [0.6, 0.6, 0.6]
+            self.roughness = 0.4
+            self.metallic = 1.0
+            self.rho_tot = 0.6
+            self.ior = 1.5
+            self.cr = 1.2
+        else: # SOLAR (only panels)
+            self.colour = [0.002, 0.001, 0.012]
+            self.roughness = 0.1
+            self.metallic = 0.8
+            self.rho_tot = 0.6
+            self.ior = 1.5
+            self.cr = 0.5
+        
+    def update_attitude(self, regime):
+        min_spin = 2*pi/30 # 30 seconds per revolution
+        max_spin = 2*pi/2 # 2 seconds per revolution
+        if regime == 'STABLE':
+            n_axes = random.choice([0,1])
+            if n_axes == 0:
+                self.spin = [0.0, 0.0, 0.0]
+            else:
+                axis = random.choice(['x', 'y', 'z'])
+                if axis == 'x':
+                    self.spin = [random.uniform(min_spin, max_spin), 0.0, 0.0]
+                elif axis == 'y':
+                    self.spin = [0.0, random.uniform(min_spin, max_spin), 0.0]
+                else:
+                    self.spin = [0.0, 0.0, random.uniform(min_spin, max_spin)]
+        else:
+            n_axes = random.choice([2,3])
+            if n_axes == 2:
+                axes = random.choice(['xy', 'xz', 'yz'])
+                if axes == 'xy':
+                    self.spin = [random.uniform(min_spin, max_spin), random.uniform(min_spin, max_spin), 0.0]
+                elif axes == 'xz':
+                    self.spin = [random.uniform(min_spin, max_spin), 0.0, random.uniform(min_spin, max_spin)]
+                else:
+                    self.spin = [0.0, random.uniform(min_spin, max_spin), random.uniform(min_spin, max_spin)]
+            else:
+                self.spin = [random.uniform(min_spin, max_spin), random.uniform(min_spin, max_spin), random.uniform(min_spin, max_spin)]
+
 def run_command(cmd):
     try:
         # Start the subprocess
@@ -41,15 +159,7 @@ def run_command(cmd):
     except Exception as e:
         print(f"An unexpected error occurred: {str(e)}")
 
-def create_directory(dir_name):
-    # Get the directory of the current script
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    print(f"Script directory: {script_dir}")
-    
-    # Construct the full path for the new directory
-    dir_path = script_dir + dir_name
-
-    dir_path = dir_name # <--------- For saving to external drive
+def create_directory(dir_path):
 
     try:
         os.makedirs(dir_path, exist_ok=True)
@@ -59,38 +169,68 @@ def create_directory(dir_name):
 
     return
 
+def randomize_object(so_bank):
+    objects = os.listdir(so_bank)
+    # print(objects)
+    obj_name = random.choice(objects)
+    obj_path = so_bank + obj_name
+    # print(obj_path)
+
+    return obj_name, obj_path
+
+def randomize_tle():
+    tle_num = random.randint(1, 10)
+    tle_file = f"./TLEs/tle_info{tle_num}.txt"
+
+    return tle_file
+
 # Constants
 scale_blender = 1/100
 scale_orekit = 1/100000
-so_bank = './objects'
+so_bank = './objects/'
+n_frames = 150 # Number of frames to render
+timestep = 0.2 # Timestep in seconds for orbit propagation
+fps = 5 # Frames per second
 
-track_num = 4
-while track_num < 5:
+track_num = 31
+while track_num < 41:
 
-    # Randomize parameters
-    random_num = 1
-    tle_file = f"./TLEs/tle_info{random_num}.txt"
-    obj_name = '/panel_1.stl'
-    obj_path = so_bank + obj_name
-    cross_sect = 0.1  # Cross section of satellite in m^2
-    mass = 10.0 # Mass of satellite in kg
-    cd = 2.2 # Coefficient of drag
-    cr = 1.2  # coefficient of reflectivity 
-    roughness = 0.3
-    metallic = 1
+    #Proper Randomization
+    tle_file = randomize_tle()
+    obj_name, obj_path = randomize_object(so_bank)
+    regime = random.choice(['STABLE', 'TUMBLING'])
+    so = object_params(regime, obj_name)
+    so.update_properties()
+    so.update_attitude(regime)
+
+    # Randomize parameters ----------------------------------------------------
+    # random_num = 2
+    # tle_file = f"./TLEs/tle_info{random_num}.txt"
+    # obj_name = 'panel_2.stl'
+    # obj_path = so_bank + obj_name
+    # cross_sect = 0.1  # Cross section of object in m^2
+    # mass = 10.0 # Mass of object in kg
+    # cd = 2.2 # Coefficient of drag
+    # cr = 1.2  # coefficient of reflectivity 
+    # roughness = 0.3
+    # metallic = 1.0
+    # rho_tot = 0.2 #Polished metallic surfaces have a total diffuse reflectance < total specular reflectance
 
     # Randomize attitude regime and spin rates
     # regime = random.choice(['STABLE', 'TUMBLING'])
-    regime = 'TUMBLING'
-    spin_x = 2*pi
-    spin_y = 2*pi
-    spin_z = 2*pi
-
+    # regime = 'TUMBLING'
+    # spin_x = pi/5
+    # spin_y = pi/5
+    # spin_z = pi/5
+    
     # Create directory for new track
-    # track_directory = f'~/scripts/obj_sim/data/track_{track_num}/'
-    track_directory = f'/media/anne/Expansion/sim_data/track_{track_num}/'
+    track_directory = f'/home/anne/Desktop/track_files/track_{track_num}/'
+    frames_file_path = f'/home/anne/Desktop/frames/frames_{track_num}/'
 
-    frames_file_path = track_directory + 'frames/'
+    print(f"Starting track {track_num} with object {obj_name} and TLE file {tle_file}.")
+    print('File save location:', track_directory)
+    print('Frames save location:', frames_file_path)
+
     create_directory(track_directory)
     create_directory(frames_file_path)
     
@@ -105,8 +245,8 @@ while track_num < 5:
     
     # Start time
     start_time = time.time()
-
-    # Run orbit propagator
+    
+    # Run orbit propagator ----------------------------------------------------
     cmd = [
             'python', 'tle_propagator.py', 
             '--track_num', str(track_num),
@@ -118,19 +258,19 @@ while track_num < 5:
             '--meta_file', str(meta_file),
             '--topo_data_file', str(topo_data_file),
             '--scale', str(scale_orekit),
-            '--regime', str(regime),
-            '--spin_x', str(spin_x),
-            '--spin_y', str(spin_y),
-            '--spin_z', str(spin_z),
-            '--mass', str(mass), # Mass of satellite in kg
-            '--cross_sect', str(cross_sect), # Cross section of satellite in m^2
-            '--cd', str(cd), # Coefficient of drag
-            '--cr', str(cr) # Coefficient of reflectivity
+            '--regime', str(so.regime),
+            '--spin_x', str(so.spin[0]),
+            '--spin_y', str(so.spin[1]),
+            '--spin_z', str(so.spin[2]),
+            '--mass', str(so.mass), # Mass of satellite in kg
+            '--cross_sect', str(so.cross_sect), # Cross section of satellite in m^2
+            '--cd', str(so.cd), # Coefficient of drag
+            '--cr', str(so.cr), # Coefficient of reflectivity
+            '--timestep', str(timestep) # Timestep in seconds
           ]
     run_command(cmd)
-    
-    
-    #Run blender simulation with object import
+
+    #Run blender simulation with object import --------------------------------
     cmd = [
         'blender', '-P', 'blender_sim.py', '--',
         '--track_num', str(track_num),
@@ -139,31 +279,41 @@ while track_num < 5:
         '--frames_dir', str(frames_file_path),
         '--positions_file', str(positions_file),
         '--scale', str(scale_blender),
-        '--metallic', str(metallic),
-        '--roughness', str(roughness),
-        '--spin_x', str(spin_x),
-        '--spin_y', str(spin_y),
-        '--spin_z', str(spin_z)
-
+        '--metallic', str(so.metallic),
+        '--roughness', str(so.roughness),
+        '--spin_x', str(so.spin[0]),
+        '--spin_y', str(so.spin[1]),
+        '--spin_z', str(so.spin[2]),
+        '--n_frames', str(n_frames),
+        '--fps', str(fps),
+        '--material', str(so.material),
+        '--r', str(so.colour[0]),
+        '--g', str(so.colour[1]),
+        '--b', str(so.colour[2]),
+        '--ior', str(so.ior)
     ]
     run_command(cmd)
     
-    # Run blender simulation for reference object
+    # Run blender simulation for reference object -----------------------------
     cmd = [
         'blender', '-P', 'blender_sim_ref.py', '--',
         '--track_num', str(track_num),
         '--ref_file', str(ref_file),
         '--meta_file', str(meta_file),
         '--scale', str(scale_blender),
-        '--metallic', str(metallic),
-        '--roughness', str(roughness),
+        '--metallic', str(so.metallic),
+        '--roughness', str(so.roughness),
+        '--r', str(so.colour[0]),
+        '--g', str(so.colour[1]),
+        '--b', str(so.colour[2]),
+        '--ior', str(so.ior)
     ]
     
     run_command(cmd)
     
     ref_file = ref_file + '.png'
-
-    # Calculate Magnitudes for light curve
+    
+    # Calculate Magnitudes for light curve -------------------------------------
     cmd = [
         'python', 'calculate_magnitudes.py',
         '--track_num', str(track_num),
@@ -174,14 +324,17 @@ while track_num < 5:
         '--lc_track_file', str(lc_track_file),
         '--frames_dir', str(frames_file_path),
         '--meta_file', str(meta_file),
-        '--cr', str(cr),
         '--scale', str(scale_orekit),
+        '--obj', str(obj_name),
+        '--rho_tot', str(so.rho_tot),
+        '--fps', str(fps)
     ]
     run_command(cmd)
-
+    
     end_time = time.time()
     print(f"Track {track_num} completed in {(end_time - start_time)/60.0} minutes.")
 
-    run_command(['blender','--quit'])
-
+    with open(meta_file, 'a') as f:
+        f.write(f"Computation Time: {(end_time - start_time)/60.0} minutes.\n")
+    
     track_num += 1
