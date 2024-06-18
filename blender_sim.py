@@ -176,12 +176,12 @@ def randomize_track_start(pos_list, num_frames):
     int_range = range(0,len(pos_list)-num_frames)
     start_index = random.choice(int_range)
 
-    return start_index
+    return start_index, len(pos_list)
 
 def import_obj(path, pos_list, roughness, metallic, num_frames, spin_state, meta_file, ior, colour, material): 
     bpy.ops.import_mesh.stl(filepath=path) 
     # bpy.ops.mesh.primitive_cylinder_add(radius=0.5, depth=1)
-    # bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='BOUNDS')
+    bpy.ops.object.origin_set(type='ORIGIN_CENTER_OF_MASS', center='BOUNDS')
     # target = bpy.context.active_object
     # bpy.context.view_layer.objects.active = target
     target = bpy.context.selected_objects[0]
@@ -189,6 +189,16 @@ def import_obj(path, pos_list, roughness, metallic, num_frames, spin_state, meta
     target.hide_viewport = False
     target.hide_render = False
     target.name = 'target'
+
+
+    #Randomize rotation
+    random_rotation = (random.uniform(0, 2 * math.pi),  # Random rotation around X axis
+                       random.uniform(0, 2 * math.pi),  # Random rotation around Y axis
+                       random.uniform(0, 2 * math.pi)   # Random rotation around Z axis
+                      )
+
+    target.rotation_euler = random_rotation
+
 
     # Create a principled shader for the cube (basic setup)
     mat = bpy.data.materials.new(name="targetMaterial")
@@ -200,10 +210,10 @@ def import_obj(path, pos_list, roughness, metallic, num_frames, spin_state, meta
     if principled_shader:
         # principled_shader.location = (0, 0)
         # Set the roughness and metallic values directly on the Principled BSDF node
-        principled_shader.inputs["Roughness"].default_value = 0.1 #roughness
-        principled_shader.inputs["Metallic"].default_value = 0.8 #metallic
-        principled_shader.inputs['Base Color'].default_value = (0.002, 0.001, 0.012, 1.0) #colour
-        principled_shader.inputs["IOR"].default_value = 2.0 #ior
+        principled_shader.inputs["Roughness"].default_value = roughness
+        principled_shader.inputs["Metallic"].default_value = metallic
+        principled_shader.inputs['Base Color'].default_value = colour
+        principled_shader.inputs["IOR"].default_value = ior
     
     if 'antenna' in path or  'cone' in path:
         # Switch to object mode if not already
@@ -223,7 +233,7 @@ def import_obj(path, pos_list, roughness, metallic, num_frames, spin_state, meta
     rot_angle_z = spin_state[2] / scene.render.fps
 
     # Set start index
-    start_index = randomize_track_start(pos_list, num_frames)
+    start_index, total_vis = randomize_track_start(pos_list, num_frames)
     
     # Write start index of position list to metadata file
     with open(meta_file, "a") as file:
@@ -233,6 +243,8 @@ def import_obj(path, pos_list, roughness, metallic, num_frames, spin_state, meta
         file.write(f'Index of Refraction: {ior}\n')
         file.write(f'Base Colour: r: {colour[0]}, g: {colour[1]}, b: {colour[2]}\n')
         file.write(f"Position Start Index: {start_index}\n")
+        file.write(f"Total Visible Positions: {total_vis}\n")
+        file.write(f'Initial Orientation: {random_rotation}\n')
 
     # Create keyframes for rotation
     for frame in range(1, num_frames + 1):
@@ -283,9 +295,9 @@ def setup_camera(focal_length, cam_pos, zenith):
     
     bpy.context.view_layer.update()
 
-    return
+    return camera
 
-def render(dir, num_frames):
+def render(dir, num_frames, meta_file):
     # Set the render output format and file extension
     scene.render.image_settings.file_format = 'PNG'
 
@@ -299,14 +311,43 @@ def render(dir, num_frames):
     scene.render.use_motion_blur = True
     scene.render.motion_blur_shutter = 1.0  # Adjust shutter speed (1.0 is the default)
 
+    not_saved = []
+
     for frame in range(1, num_frames + 1):
 
-        #Get image of target
-        scene.frame_set(frame)
-        scene.render.filepath = dir + "frame_" + str(frame)
-        bpy.ops.render.render(write_still=True)
+        try:
+            #Get image of target
+            scene.frame_set(frame)
+            scene.render.filepath = dir + "frame_" + str(frame)
+            bpy.ops.render.render(write_still=True)
+        except Exception as e:
+            print(f"Error rendering frame {frame}: {e}", file=sys.stderr)
+            not_saved.append(frame)
+
 
     print('DONE')
+
+    return not_saved
+
+def point_and_crop(camera):
+    constraint = camera.constraints.new(type='TRACK_TO') #camera stays pointed at the target
+    constraint.target = bpy.data.objects["target"]  
+    
+    # Set the area to be rendered (normalized coordinates: 0 to 1)
+    min_x = 0.4
+    min_y = 0.4
+    max_x = 0.6
+    max_y = 0.6
+
+    # Set the render border
+    scene.render.border_min_x = min_x
+    scene.render.border_min_y = min_y
+    scene.render.border_max_x = max_x
+    scene.render.border_max_y = max_y
+
+    # Enable render border
+    scene.render.use_border = True
+    scene.render.use_crop_to_border = True
 
     return
 
@@ -385,10 +426,14 @@ if __name__ == "__main__":
     setup_earth(Re)
 
     # Set up the camera
-    setup_camera(focal_length, cam_pos, zenith)
+    camera = setup_camera(focal_length, cam_pos, zenith)
+    point_and_crop(camera)
 
     # Render and save key frames
-    render(frames_dir, num_frames)
+    not_saved = render(frames_dir, num_frames, meta_file)
+
+    with open(meta_file, "a") as file:
+        file.write(f'Frames Not Saved ({len(not_saved)}): {not_saved}\n')
 
     # Finish
     print(f'*** Frame Images Generated for Track {track_num}. ***')

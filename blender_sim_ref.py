@@ -97,7 +97,7 @@ def setup_sun(pos, scale):
     y = float(pos.split(',')[1])
     z = float(pos.split(',')[2][:-1])
 
-    bpy.ops.object.light_add(type='SUN', radius=696340*scale, align='WORLD', location=(x, y, z))#, location=(x, y, z))
+    bpy.ops.object.light_add(type='SUN', radius=696340*scale, align='WORLD', location=(x, y, z))
 
     # Select the sun lamp
     sun_lamp = bpy.context.active_object
@@ -198,7 +198,7 @@ def create_ref_obj(ref_pos, roughness, metallic, zenith, ior, colour):
         principled_shader.inputs["IOR"].default_value = ior
     
     # Rotate object
-    target_normal = -mathutils.Vector((x_zenith, y_zenith, z_zenith))
+    target_normal = -mathutils.Vector((x_zenith, y_zenith - 0.1, z_zenith - 0.1))
     initial_normal = mathutils.Vector((0.0, 0.0, 1.0))
     # Calculate the rotation axis (cross product of initial and target normal)
     rotation_axis = initial_normal.cross(target_normal)
@@ -251,6 +251,28 @@ def setup_camera(focal_length, cam_pos, zenith):
     camera.rotation_quaternion = rotation_quaternion
     
     bpy.context.view_layer.update()
+
+    return
+
+def crop():
+    # constraint = camera.constraints.new(type='TRACK_TO') #camera stays pointed at the target
+    # constraint.target = bpy.data.objects["target"]  
+    
+    # Set the area to be rendered (normalized coordinates: 0 to 1)
+    min_x = 0.4
+    min_y = 0.4
+    max_x = 0.6
+    max_y = 0.6
+
+    # Set the render border
+    scene.render.border_min_x = min_x
+    scene.render.border_min_y = min_y
+    scene.render.border_max_x = max_x
+    scene.render.border_max_y = max_y
+
+    # Enable render border
+    scene.render.use_border = True
+    scene.render.use_crop_to_border = True
 
     return
 
@@ -325,6 +347,7 @@ if __name__ == "__main__":
 
     # Set up the camera
     setup_camera(focal_length, cam_pos, zenith)
+    crop()
 
     # Render and save key frames
     render(ref_file)

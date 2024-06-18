@@ -257,7 +257,7 @@ if __name__ == "__main__":
 
     # PARAMETERS ---------------------------------------------------------------
     save_path = './objects/'
-    obj_name = 'panel_3.stl' # <--- change this for every object
+    obj_name = 'rod_2.stl' # <--- change this for every object
     # Scales
     cone_scale = 0.75 # [0.75, 1.25]
     panel_scale_l = 6 # [1.0, 6.0]
@@ -267,8 +267,8 @@ if __name__ == "__main__":
     bus_scale_h = 37 # [1.0, 37.0]
     rocket_scale_h = 1.25 # [0.75, 1.25]
     rocket_rh_ratio = 0.134 # [0.1, 0.2]
-    rod_scale_h = 1.5 # [0.5, 1.5]
-    rod_rh_ratio = 0.01 # [0.005, 0.015]
+    rod_scale_h = 1.0 # [0.5, 2.0]
+    rod_rh_ratio = 0.01 # [0.005, 0.02]
     antenna_r_scale = 1 #[1, 3]
     # Cone parameters
     cone_r, cone_h, cone_vertices = 0.15, 1, 50
@@ -279,7 +279,7 @@ if __name__ == "__main__":
     # rocket parameters
     rocket_h = 13.8
     # rod parameters
-    rod_h = 3
+    rod_h = 0.5
     # antenna parameters
     antenna_r = 0.5
     #------------------------------------------------------------------------------
@@ -291,20 +291,20 @@ if __name__ == "__main__":
     # active_obj = create_rect(panel_l*panel_scale_l, panel_w*panel_scale_w, panel_t) #panel version
     # active_obj = create_rect(bus_l*bus_scale_l, bus_w*bus_scale_w, bus_h*bus_scale_h) #bus version
     # active_obj = create_cyl(rocket_h*rocket_scale_h*rocket_rh_ratio, rocket_h*rocket_scale_h) # rocket version
-    # active_obj = create_cyl(rod_h*rod_scale_h*rod_rh_ratio, rod_h*rod_scale_h) # rod version
-    active_obj = create_antenna(antenna_r*antenna_r_scale, antenna_r_scale)
+    active_obj = create_cyl(rod_h*rod_scale_h*rod_rh_ratio, rod_h*rod_scale_h) # rod version
+    # active_obj = create_antenna(antenna_r*antenna_r_scale, antenna_r_scale)
 
 
     # print("Saving active object to", save_path)
-    # bpy.ops.export_mesh.stl(filepath=save_path+obj_name, 
-    #                         check_existing=False, filter_glob="*.stl", 
-    #                         use_selection=True, 
-    #                         global_scale=1.0, 
-    #                         use_scene_unit=False, 
-    #                         ascii=False, 
-    #                         use_mesh_modifiers=True, 
-    #                         batch_mode='OFF', 
-    #                         axis_forward='Y', 
-    #                         axis_up='Z')
+    bpy.ops.export_mesh.stl(filepath=save_path+obj_name, 
+                            check_existing=False, filter_glob="*.stl", 
+                            use_selection=True, 
+                            global_scale=1.0, 
+                            use_scene_unit=False, 
+                            ascii=False, 
+                            use_mesh_modifiers=True, 
+                            batch_mode='OFF', 
+                            axis_forward='Y', 
+                            axis_up='Z')
 
 

@@ -56,9 +56,10 @@ from org.orekit.propagation.events.handlers import ContinueOnEvent
 
 from math import radians, degrees, atan, tan, sqrt, pi, sin, cos, acos
 import argparse
-import random
-import pandas as pd
+import numpy as np
 import sys
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 #Initialize orekit
 vm = orekit.initVM()
@@ -198,7 +199,7 @@ def addForceModels(propagator, space_object_chars, relativity=True, thirdBody=Tr
 
     return propagator
 
-def createDihedralFOV(az, el):
+def createDihedralFOV(az, el, fov_width, fov_height):
     x,y,z = sphere2cartesian(az, el)
     center = Vector3D([x,y,z])
     axis2 = Vector3D.crossProduct(Vector3D.PLUS_K, center)
@@ -215,6 +216,14 @@ def getPositionCoord(pv, scale):
     x = pv.getPosition().getX()*scale
     y = pv.getPosition().getY()*scale
     z = pv.getPosition().getZ()*scale
+
+    return '(%f, %f, %f)' % (x, y, z)
+
+def getVelocityCoord(pv):
+    #returns initial velocity in m/s
+    x = pv.getVelocity().getX()
+    y = pv.getVelocity().getY()
+    z = pv.getVelocity().getZ()
 
     return '(%f, %f, %f)' % (x, y, z)
 
@@ -296,6 +305,41 @@ def get_phase_angle(obj_pv, sun_pv, obj_range, sun_range):
 
     return phase_angle
 
+def plot_positions(data, full_prop, gs_coord):
+    print(data[0])
+    print(type(data[0]))
+
+    x = [float(line.split(', ')[0].strip('(')) for line in data]
+    y = [float(line.split(', ')[1])  for line in data]
+    z = [float(line.split(', ')[2].strip(')'))  for line in data]
+
+    X = [float(line.split(', ')[0].strip('(')) for line in full_prop]
+    Y = [float(line.split(', ')[1])  for line in full_prop]
+    Z = [float(line.split(', ')[2].strip(')'))  for line in full_prop]
+
+    gs_X = float(gs_coord.split(', ')[0].strip('('))
+    gs_Y = float(gs_coord.split(', ')[1])
+    gs_Z = float(gs_coord.split(', ')[2].strip(')'))
+
+
+    fig = plt.figure()
+
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Plot the data
+    ax.scatter(gs_X, gs_Y, gs_Z, c='b', marker='o', label='Ground Station')
+    ax.plot(X, Y, Z, c='g', label='Full Propagation')
+    ax.scatter(x, y, z, c='r', marker='.', label='Visible Positions')
+    ax.scatter(0, 0, 0, c='r', marker='+', label='Inertial Origin')
+
+    # # Set labels for the axes
+    ax.set_title('3D Plot of SO Positions')
+
+    # Show the plot
+    plt.show()
+
+    return
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Process satellite parameters for TLE propagation.')
     parser.add_argument('--track_num', required=True, help='Track number')
@@ -304,6 +348,7 @@ def parse_args():
     parser.add_argument('--obj_path', required=True, help='Path to the object stl file')
     parser.add_argument('--tle_file', required=True, help='Path to the TLE file')
     parser.add_argument('--positions_file', required=True, help='Path to save object positions')
+    parser.add_argument('--full_positions_file', required=True, help='Path to save positions of full propagation')
     parser.add_argument('--meta_file', required=True, help='Path to save metadata')
     parser.add_argument('--topo_data_file', required=True, help='Path to save topocentric data')
     parser.add_argument('--scale', required=True, type=float, help='Scale to convert to blender units')
@@ -316,8 +361,11 @@ def parse_args():
     parser.add_argument('--cd', required=True, type=float, help='Coefficient of drag')
     parser.add_argument('--cr', required=True, type=float, help='Coefficient of reflectivity')
     parser.add_argument('--timestep', required=True, type=float, help='Timestep for scheduler in seconds')
+    parser.add_argument('--num_frames', required=True, type=int, help='Number of frames to generate')
     
     return parser.parse_args()
+
+
 
 if __name__ == "__main__":
     args = parse_args()
@@ -329,6 +377,7 @@ if __name__ == "__main__":
     obj_path = args.obj_path
     tle_file = args.tle_file
     positions_file = args.positions_file
+    full_positions_file = args.full_positions_file
     meta_file = args.meta_file
     topo_data_file = args.topo_data_file
     scale = args.scale
@@ -341,24 +390,25 @@ if __name__ == "__main__":
     cd = args.cd
     cr = args.cr
     timestep = args.timestep
+    n_frames = args.num_frames
     
-    print('************************************')
-    print('ARGUMENTS')
-    print('Track Directory:', track_dir)
-    print('Object Name:', obj_name)
-    print('Object Path:', obj_path)
+    # print('************************************')
+    # print('ARGUMENTS')
+    # print('Track Directory:', track_dir)
+    # print('Object Name:', obj_name)
+    # print('Object Path:', obj_path)
     print('TLE File:', tle_file)
-    print('Positions File:', positions_file)
-    print('Meta File:', meta_file)
-    print('Topographic Data File:', topo_data_file)
-    print('Scale:', scale)
-    print('Attitude Regime:', regime)
-    print('Spin Rates:', spin_x, spin_y, spin_z)
-    print('Mass:', mass)
-    print('Cross Section:', cross_sect)
-    print('Coefficient of Drag:', cd)
-    print('Coefficient of Reflectivity:', cr)
-    print('************************************')
+    # print('Positions File:', positions_file)
+    # print('Meta File:', meta_file)
+    # print('Topographic Data File:', topo_data_file)
+    # print('Scale:', scale)
+    # print('Attitude Regime:', regime)
+    # print('Spin Rates:', spin_x, spin_y, spin_z)
+    # print('Mass:', mass)
+    # print('Cross Section:', cross_sect)
+    # print('Coefficient of Drag:', cd)
+    # print('Coefficient of Reflectivity:', cr)
+    # print('************************************')
 
     # Extra parameters
     obj_elev_min = radians(15)  # Elevation limit in radians
@@ -367,7 +417,7 @@ if __name__ == "__main__":
     latitude = radians(43.6)  # Latitude of MiniMegaTORTORA telescope
     longitude = radians(41.4) # Longitude of MiniMegaTORTORA telescope
     altitude = 2030.0  # Altitude above sea level in meters
-    half_ap_fov = radians(45)  # Half of the aperture field of view in radians
+    half_ap_fov = radians(60)  # Half of the aperture field of view in radians
     minStep = 1e-3
     maxstep = 1e3
     initStep = 60.0 #[s]
@@ -394,6 +444,7 @@ if __name__ == "__main__":
     tle_epoch = tle.getDate() #Date of TLE epoch
     print('TLE EPOCH: ', tle_epoch)
     print('TLE:')
+    print(tle_line0)
     print(tle_line1)
     print(tle_line2)
     print('Propagation Start Epoch: ', t0)
@@ -439,7 +490,7 @@ if __name__ == "__main__":
     space_object = generator.addPropagator(propagator)
     azElBuilder = AngularAzElBuilder(None, groundStation, [0.0,0.0], [1.0,1.0], space_object)
     fov = CircularFieldOfView(Vector3D.PLUS_K, half_ap_fov, 0.0)
-    fovGroundDetector = GroundFieldOfViewDetector(gs1_frame, fov).withHandler(ContinueOnEvent()).withMaxCheck(0.1) #Check every second
+    fovGroundDetector = GroundFieldOfViewDetector(gs1_frame, fov).withHandler(ContinueOnEvent()).withMaxCheck(timestep) #Check every second
 
     # Set up night detector
     nightDetector = GroundAtNightDetector(gs1_frame, 
@@ -471,104 +522,125 @@ if __name__ == "__main__":
     propagator.addEventDetector(logger.monitorDetector(fovAtNightDetector))
 
     # Retreive measurements
+
     generator.generate(t0, t1)
     data = subscriber.getGeneratedMeasurements()
+    if data.size() < n_frames:
+        print('Required Frames: ', n_frames)
+        print('Visible Positions: ', data.size())
+        sys.exit(1)
 
-    # Create Events Logger checks when object enters and exits field of view
-    mylog = logger.getLoggedEvents()
-    print('Logged Events: ', mylog.size())
-    for index, event in enumerate(mylog):
-        if index % 2 == 0:
-            print('Enter: ', event.getState().getDate())
-        else:
-            print('Exit: ', event.getState().getDate())
+    else:
+        # Create Events Logger checks when object enters and exits field of view
+        print('Acquired enough visible positions: ', data.size())
+        mylog = logger.getLoggedEvents()
+        print('Logged Events: ', mylog.size())
+        for index, event in enumerate(mylog):
+            if index % 2 == 0:
+                enter = event.getState().getDate()
+                print('Enter: ', enter)
+            else:
+                exit = event.getState().getDate()
+                print('Exit: ', exit)
 
-    ## Record results
-    obj_pos_list = []
-    topo_data_list = []
-    # sun_pos_list = []
-    first = True
+        ## Record results
+        obj_pos_list = []
+        topo_data_list = []
+        first = True
 
-    for meas in data:
-        castedMeasurements = AngularAzEl.cast_(meas)
-        azimuth = degrees(castedMeasurements.getObservedValue()[0])
-        elevation = degrees(castedMeasurements.getObservedValue()[1])
-        event_epoch = castedMeasurements.getDate()
+        for meas in data:
+            castedMeasurements = AngularAzEl.cast_(meas)
+            azimuth = degrees(castedMeasurements.getObservedValue()[0])
+            elevation = degrees(castedMeasurements.getObservedValue()[1])
+            event_epoch = castedMeasurements.getDate()
 
-        # Calculate ranges
-        pv_object_topo = propagator.getPVCoordinates(event_epoch, gs1_frame)
-        pv_sun_topo = sun.getPVCoordinates(event_epoch, gs1_frame)
-        range_obj = get_range(pv_object_topo)
-        range_sun = get_range(pv_sun_topo)
-        phase_angle = get_phase_angle(pv_object_topo, pv_sun_topo, range_obj, range_sun)
-        topo_data = str(f'Epoch: {event_epoch}, Azimuth: {azimuth}, Elevation: {elevation}, Range: {range_obj}, Phase: {phase_angle}')
+            # Calculate ranges
+            pv_object_topo = propagator.getPVCoordinates(event_epoch, gs1_frame)
+            pv_sun_topo = sun.getPVCoordinates(event_epoch, gs1_frame)
+            range_obj = get_range(pv_object_topo)
+            range_sun = get_range(pv_sun_topo)
+            phase_angle = get_phase_angle(pv_object_topo, pv_sun_topo, range_obj, range_sun)
+            topo_data = str(f'Epoch: {event_epoch}, Azimuth: {azimuth}, Elevation: {elevation}, Range: {range_obj}, Phase: {phase_angle}')
 
-        pv_object = propagator.getPVCoordinates(event_epoch, inertial_frame)
-        pv_sun = sun.getPVCoordinates(event_epoch, inertial_frame)
-
-        coord_obj = getPositionCoord(pv_object, scale)
-        coord_sun = getPositionCoord(pv_sun, scale)
-
-        if first:
-            # print(topo_data)
+            pv_object = propagator.getPVCoordinates(event_epoch, inertial_frame)
             pv_sun = sun.getPVCoordinates(event_epoch, inertial_frame)
+
+            coord_obj = getPositionCoord(pv_object, scale)
             coord_sun = getPositionCoord(pv_sun, scale)
+
+            if first:
+                # print(topo_data)
+                pv_sun = sun.getPVCoordinates(event_epoch, inertial_frame)
+                coord_sun = getPositionCoord(pv_sun, scale)
+                
+                # Get ground station position (camera position, inertial frame)
+                coord_gs1 = getPositionCoord_gs(gs1_frame, event_epoch, inertial_frame, itrf, scale)
+
+                # Get unit vector pointing to zenith from ground station and position of ref object, inertial frame
+                zenith_unitVec, ref_pos = getZenithFromGS(gs1_frame, event_epoch, inertial_frame, scale)
+
+                # Get unitV from gs1 to sun and u_sun dot product with ref surface normal vector
+                u_sun, norm_dot_sun = get_dot(gs1_frame, event_epoch, inertial_frame, pv_sun, zenith_unitVec.negate())
+
+                # Get initial velocity
+                vel_obj_init = getVelocityCoord(pv_object)
+
+                first = False
             
-            # Get ground station position (camera position, inertial frame)
-            coord_gs1 = getPositionCoord_gs(gs1_frame, event_epoch, inertial_frame, itrf, scale)
+            obj_pos_list.append(coord_obj)
+            topo_data_list.append(topo_data)
 
-            # Get unit vector pointing to zenith from ground station and position of ref object, inertial frame
-            zenith_unitVec, ref_pos = getZenithFromGS(gs1_frame, event_epoch, inertial_frame, scale)
+        # Run an orbit propagator to show the whole prpagation period
+        t = [t0.shiftedBy(float(dt)) \
+                for dt in np.arange(0, t1.durationFrom(t0), timestep)]
 
-            # Get unitV from gs1 to sun and u_sun dot product with ref surface normal vector
-            u_sun, norm_dot_sun = get_dot(gs1_frame, event_epoch, inertial_frame, pv_sun, zenith_unitVec.negate())
+        state = [propagator.propagate(tt) for tt in t]
+        pos = [propagator.propagate(tt).getPVCoordinates() for tt in t]
 
-            first = False
-        
-        obj_pos_list.append(coord_obj)
-        topo_data_list.append(topo_data)
-        # sun_pos_list.append(coord_sun)
+        full_pos_list = [getPositionCoord(pv, scale) for pv in pos]
 
-        # ****************Calculate phase angle here****************
+        # plot_positions(obj_pos_list, full_pos_list, coord_gs1)
 
+        with open(positions_file, "w") as file:
+            for item in obj_pos_list:
+                file.write("%s\n"% str(item)) 
 
-    print('Measurements: ', data.size())
+        with open(full_positions_file, "w") as file:
+            for item in full_pos_list:
+                file.write("%s\n"% str(item))
 
-    with open(positions_file, "w") as file:
-        for item in obj_pos_list:
-            file.write("%s\n"% str(item)) 
+        with open(meta_file, 'w') as file:
+            file.write(f'Object Name: {obj_name}\n')
+            file.write(f'Attitude Regime: {regime}\n')
+            file.write(f'Spin Rates [rad/s]: x: {spin_x}, y: {spin_y}, z: {spin_z}\n')
+            file.write(f'Object Path: {obj_path}\n')
+            file.write(f'Mass: {mass}\n')
+            file.write(f'Cross Section: {cross_sect}\n')
+            file.write(f'Coefficient of Drag: {cd}\n')
+            file.write(f'Coefficient of Reflectivity: {cr}\n')
+            file.write(f'TLE Epoch: {tle_epoch}\n')
+            file.write(f'Ground Station Position: {coord_gs1}\n')
+            file.write(f'Sun Position: {coord_sun}\n')
+            file.write(f'Zenith Unit Vector: {zenith_unitVec}\n')
+            file.write(f'Reference Position: {ref_pos}\n')
+            file.write(f'Unit Vector from Topocentric Origin to Sun (u_sun): {u_sun}\n')
+            file.write(f'Dot Product Betweeen u_sun and u_surfaceNorm: {norm_dot_sun}\n')
+            file.write(f'TLE Line 0: {tle_line0}\n')
+            file.write(f'TLE Line 1: {tle_line1}\n')
+            file.write(f'TLE Line 2: {tle_line2}\n')
+            file.write(f'Propagation Start Epoch: {t0}\n')
+            file.write(f'Propagation End Epoch: {t1}\n')
+            file.write(f'Initial Velocity: {vel_obj_init}\n')
 
-    with open(meta_file, 'w') as file:
-        file.write(f'Object Name: {obj_name}\n')
-        file.write(f'Attitude Regime: {regime}\n')
-        file.write(f'Spin Rates [rad/s]: x: {spin_x}, y: {spin_y}, z: {spin_z}\n')
-        file.write(f'Object Path: {obj_path}\n')
-        file.write(f'Mass: {mass}\n')
-        file.write(f'Cross Section: {cross_sect}\n')
-        file.write(f'Coefficient of Drag: {cd}\n')
-        file.write(f'Coefficient of Reflectivity: {cr}\n')
-        file.write(f'TLE Epoch: {tle_epoch}\n')
-        file.write(f'Ground Station Position: {coord_gs1}\n')
-        file.write(f'Sun Position: {coord_sun}\n')
-        file.write(f'Zenith Unit Vector: {zenith_unitVec}\n')
-        file.write(f'Reference Position: {ref_pos}\n')
-        file.write(f'Unit Vector from Topocentric Origin to Sun (u_sun): {u_sun}\n')
-        file.write(f'Dot Product Betweeen u_sun and u_surfaceNorm: {norm_dot_sun}\n')
-        file.write(f'TLE Line 0: {tle_line0}\n')
-        file.write(f'TLE Line 1: {tle_line1}\n')
-        file.write(f'TLE Line 2: {tle_line2}\n')
-        file.write(f'Propagation Start Epoch: {t0}\n')
-        file.write(f'Propagation End Epoch: {t1}\n')
+        with open(topo_data_file, "w") as file:
+            file.write('Epoch Azimuth[deg] Elevation[deg] Range[m] Phase[deg]\n')
+            for item in topo_data_list:
+                info = item.split(', ')
+                epoch = str(info[0].split(': ')[1])
+                azimuth = float(info[1].split(': ')[1])
+                elevation = float(info[2].split(': ')[1])
+                range = float(info[3].split(': ')[1])
+                phase = float(info[4].split(': ')[1])
+                file.write("%s %s %s %s %s\n"% (epoch, azimuth, elevation, range, phase))
 
-    with open(topo_data_file, "w") as file:
-        file.write('Epoch Azimuth[deg] Elevation[deg] Range[m] Phase[deg]\n')
-        for item in topo_data_list:
-            info = item.split(', ')
-            epoch = str(info[0].split(': ')[1])
-            azimuth = float(info[1].split(': ')[1])
-            elevation = float(info[2].split(': ')[1])
-            range = float(info[3].split(': ')[1])
-            phase = float(info[4].split(': ')[1])
-            file.write("%s %s %s %s %s\n"% (epoch, azimuth, elevation, range, phase))
-
-    print(f'*** Positions Generated for Track {track_num}. ***')
+        print(f'*** Positions Generated for Track {track_num}. ***')

@@ -40,14 +40,14 @@ def get_m(img_file, m_ref, I_ref, t_exp, d_target_km, d_ref, scale, mags):
 
         #Get the pixel values as a list of tuples
         pixels = list(img.getdata())
-        print(len(pixels))
-        print(type(pixels[0]))
-        print(pixels[0])
+        # print(len(pixels))
+        # print(type(pixels[0]))
+        # print(pixels[0])
 
         #Calculate the sum of pixel values
         B = sum(sum(pixel) for pixel in pixels)
         # B = sum(0.299 * r + 0.587 * g + 0.114 * b for r, g, b in pixels)
-        print('B = ', B)
+        # print('B = ', B)
 
         m = m_ref - I_ref + (-2.5*np.log10(B/(t_exp*((d_target_km/d_ref)/scale)**2)))
 
@@ -84,17 +84,16 @@ if __name__ == "__main__":
 
     # Equation parameters --------------------------------------------
     C = 1062 #W/m^2
-    t_exp = 1/(2*fps) #s
+    t_exp = 1/fps #s - maximum allowable exposure time
     A = 1.0 #blender units^2
     dot_cam_norm = 1.0
     d_ref = 100 #blender units
     dot_sun_norm = get_norm(meta_file)
-    print('dot_sun_norm = ', dot_sun_norm)
     # ----------------------------------------------------------------
 
     # Read file containing range information
     with open(topo_data_file, 'r') as f:
-        lines = f.readlines()
+        range_data = f.readlines()
 
     mags = []
     pixel_intensitites = []
@@ -104,29 +103,32 @@ if __name__ == "__main__":
     #open reference image
     ref_img = Image.open(ref_file)
     pixels = list(ref_img.getdata())
-    print(len(pixels))
-    print(type(pixels[0]))
-    print(pixels[0])
+
     B_ref = sum(sum(pixel) for pixel in pixels)
     # B_ref = sum(0.299 * r + 0.587 * g + 0.114 * b for r, g, b, _ in pixels)
-    print('B_ref = ', B_ref)
 
     I_ref = -2.5*np.log10(B_ref/t_exp)
     F_sun = C*dot_sun_norm
     F = (F_sun*rho_tot*A*dot_cam_norm)/d_ref**2
     m_ref = -26.7-2.5*np.log10(F/C)
-    # print('dot_sun_norm = ', dot_sun_norm)
-    # print('F = ', F)
-    # print('m_ref = ', m_ref)
-    # print('I_ref = ', I_ref)
 
     files = sorted(os.listdir(frames_dir))
-    topo_file_line = 1
+    
+    # Get start index of topo data
+    with open(meta_file, 'r') as f:
+        metadata = {}
+        for line in f:
+            if ':' in line:
+                key, value = line.split(': ', 1)
+                metadata[key] = value.strip('\n')
+    #get start index
+    topo_file_line = int(metadata['Position Start Index'])
+    
     # Go through files and range values
-    for file in sorted(files):  
+    for file in files:  
         
         #Get range in km
-        d_target = float(lines[topo_file_line].split(' ')[3]) #blender units
+        d_target = float(range_data[topo_file_line].split(' ')[3]) #blender units
         d_target_km = d_target*scale
         
         full_path = frames_dir + file
@@ -168,6 +170,11 @@ if __name__ == "__main__":
 
     with open(meta_file, 'a') as f:
         f.write(f'Reference Pixel Intenity: {B_ref}\n')
+        f.write(f'Total Diffusivity: {rho_tot}\n')
+        f.write(f'Frames: {len(files)}\n')
+        f.write(f'Frames per Second: {fps}\n')
+        f.write(f'Light Curve Duration [s]: {len(files)/fps}\n')
+        
 
     with open(lc_track_file, 'w') as f:
         f.write('Apparent_Magnitudes Noise_Added Pixel_Intensities\n')
