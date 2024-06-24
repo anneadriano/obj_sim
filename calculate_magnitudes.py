@@ -95,6 +95,7 @@ if __name__ == "__main__":
     with open(topo_data_file, 'r') as f:
         range_data = f.readlines()
 
+    range_data = range_data[1:]
     mags = []
     pixel_intensitites = []
     

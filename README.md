@@ -3,3 +3,7 @@ tle_propagator.py
     -First line is camera position
     -Second line is sun position
     -Following lines represent positions of moving object of interest
+
+lc_processing directory is for 
+    -tracking lc generation
+    -Generating plots

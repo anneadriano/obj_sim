@@ -7,6 +7,9 @@
 # data files
 data/
 
-#orekit data
+# orekit data
 orekit-data-master/
+
+# other
+test.py
 

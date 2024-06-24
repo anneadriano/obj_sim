@@ -215,8 +215,8 @@ timestep = 0.2 # Timestep in seconds for orbit propagation
 fps = 5 # Frames per second
 # random.seed(42)
 
-track_num = 501
-while track_num < 1001:
+track_num = 1501
+while track_num < 2001:
     
     # Create directory for new track
     obj_name, obj_path = randomize_object(so_bank)
