@@ -215,6 +215,7 @@ def import_obj(path, pos_list, roughness, metallic, num_frames, spin_state, meta
         principled_shader.inputs['Base Color'].default_value = colour
         principled_shader.inputs["IOR"].default_value = ior
     
+    #Subdivide surface for smoother finish
     if 'antenna' in path or  'cone' in path:
         # Switch to object mode if not already
         bpy.ops.object.mode_set(mode='OBJECT')

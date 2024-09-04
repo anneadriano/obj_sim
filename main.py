@@ -1,10 +1,13 @@
 '''
 calls other files
 1. retrieve_ST_TLE.py
-2. blender_sim.py as a blender script
+2. tle_propagator.py to propagate the orbit and get positions
+3. blender_sim.py as a blender script to enerate rendered images at each timestep
+4. blender_sim_ref.py as a blender script to create reference object frame
+5. calculate_magnitudes.py to calculate the apparent magnitudes from the generated frames
 '''
 
-import subprocess 
+import subprocess
 import os
 import sys
 import random
@@ -200,7 +203,7 @@ def randomize_object(so_bank):
     return obj_name, obj_path
 
 def randomize_tle():
-    tle_num = random.randint(1, 10)
+    tle_num = random.randint(1, 20)
     tle_file = f"./TLEs/tle_info{tle_num}.txt"
     # tle_file = f"./TLEs/tle_info{8}.txt"
 
@@ -215,9 +218,9 @@ timestep = 0.2 # Timestep in seconds for orbit propagation
 fps = 5 # Frames per second
 # random.seed(42)
 
-track_num = 1501
-while track_num < 2001:
-    
+track_num = 8501
+while track_num < 8601:
+
     # Create directory for new track
     obj_name, obj_path = randomize_object(so_bank)
     regime = random.choice(['STABLE', 'TUMBLING'])
