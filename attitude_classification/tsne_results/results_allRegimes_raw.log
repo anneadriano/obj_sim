@@ -1,0 +1,8 @@
+(6566, 300)
+Smallest class size: 3265
+(6530, 300)
+(6530,)
+Shape after 3D tsne: (6530, 3)
+Parameters:
+Track length: 300, Attitude type: allRegimes, Coefficients: raw
+Time taken for t-SNE: 160.8343424797058 seconds

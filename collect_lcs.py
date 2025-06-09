@@ -15,7 +15,7 @@ def normalize(data):
 
     return (data - mean) / std
 
-length = 300
+length = 200
 att_type = 'tumbling'
 buffer = 50 # How much shorter the light curve can be than the desired length
 save_location = '/home/anne/scripts/obj_sim/stacked_data/'

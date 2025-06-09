@@ -2,22 +2,24 @@
 Performs xgboost shape classification (no cross validation)
 0 - STABLE
 1 - TUMBLING
-python attitude_classification/xgb.py 2>&1 | tee attitude_classification/no_fold_results/allCoeffs_tsne.log
+python attitude_classification/xgb_folds.py 2>&1 | tee attitude_classification/raw/classif_results.log
 '''
 
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
 from mpl_toolkits.mplot3d import Axes3D
 from sklearn.manifold import TSNE
 import xgboost as xgb
+import torch
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.decomposition import PCA
+from torch.utils.data import TensorDataset, SubsetRandomSampler
 import random
 import seaborn as sns
-import sys
 import time
+import sys
 
 random.seed(42)
 
@@ -134,13 +136,13 @@ def tsne_reduction(X, y):
     return data_tsne.reshape(data_tsne.shape[0], data_tsne.shape[1], 1)
     
 
+
 # Input Parameters -----------------------------------------------------------
 track_length = 300
+test_size = 0.1
 att_type = 'allRegimes'
-lc_type = 'raw' #order1Coeffs, allCoeffs, raw
-label = 'raw_tsne'
+lc_type = 'allCoeffs' #raw, coeffs, order1
 tsne = True
-test_size = 0.2
 
 params = {'objective':'binary:logistic',
         'eval_metric':'logloss',
@@ -163,7 +165,13 @@ params = {'objective':'binary:logistic',
 lc_stack_folder = '/home/anne/scripts/obj_sim/stacked_data/'
 coeff_folder = '/home/anne/scripts/obj_sim/coefficients/J4Q16/'
 catalogue_path = lc_stack_folder + f'catalogue_{track_length}_{att_type}.txt'
-save_loc = f'/home/anne/scripts/obj_sim/attitude_classification/no_fold_results/'
+
+if tsne:
+    save_conf = f'/home/anne/scripts/obj_sim/attitude_classification/{lc_type}_tsne/confMatrices/'
+    save_loss = f'/home/anne/scripts/obj_sim/attitude_classification/{lc_type}_tsne/lossCurves/'
+else:
+    save_conf = f'/home/anne/scripts/obj_sim/attitude_classification/{lc_type}/confMatrices/'
+    save_loss = f'/home/anne/scripts/obj_sim/attitude_classification/{lc_type}/lossCurves/'
 
 
 data_path = lc_stack_folder + f'lc_stack_{track_length}_{att_type}.npy' #<--- For raw light curves
@@ -176,84 +184,120 @@ print(all_data.shape)
 
 X, y = build_dataset(catalogue, all_data)
 
+if tsne:
+    #bringin tsne np array
+    # X = tsne_reduction(X, y)
+    np.load(lc_stack_folder + f'tsne_{track_length}_{att_type}_{lc_type}.npy')
+    # X = np.load(f'/home/anne/scripts/obj_sim/stacked_data/tsne_{track_length}_{att_type}_{lc_type}.npy')
+
 print(X.shape)
 print(y.shape)
 
-# X = pca_reduction(X, 1) 
-
-if tsne:
-    X = tsne_reduction(X, y)
-    np.save(save_loc + f'tsne_{label}.npy', X)
-
-    # X = np.load(f'/home/anne/scripts/obj_sim/stacked_data/tsne_{track_length}_{att_type}_{lc_type}.npy')
-    # X = np.load(save_loc + f'tsne_{label}.npy')
-
 # Split the combined data and labels into train and test sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
-X_test, X_val, y_test, y_val = train_test_split(X_test, y_test, test_size=0.5, random_state=42) 
 
 #Flatten the data
-X_train_flat= np.reshape(X_train, (X_train.shape[0], -1))
 X_test_flat = np.reshape(X_test, (X_test.shape[0], -1))
-X_val_flat = np.reshape(X_val, (X_val.shape[0], -1))
-y_train_flat = y_train.reshape(-1,)
 y_test_flat = y_test.reshape(-1,)
-y_val_flat = y_val.reshape(-1,)
 
-print('Train size: ', X_train_flat.shape)
-print('Validation size:', X_val_flat.shape)
 print('Test size:', X_test_flat.shape)
 
-# Train the model
-watchlist = [(X_train_flat, y_train), (X_val_flat, y_val)]
-clf = xgb.XGBClassifier(**params)
+# Set up folds and data
+data_tensor = torch.from_numpy(X_train).float()
+labels_tensor = torch.from_numpy(y_train).long()
+dataset = TensorDataset(data_tensor, labels_tensor)
 
-print('Training XGBoost model...')
+kf = KFold(n_splits=3)
+test_accs = []
+val_accs = []
+train_accs = []
+
 start = time.time()
-clf.fit(X_train_flat, y_train, eval_set=watchlist, verbose=False)
+
+for fold, (train_idx, val_idx) in enumerate(kf.split(range(len(dataset)))):
+    print(f'---------------------------------- Fold {fold + 1} ----------------------------------')
+
+    X_train = data_tensor[train_idx].numpy()
+    y_train = labels_tensor[train_idx].numpy()
+    X_val = data_tensor[val_idx].numpy()
+    y_val = labels_tensor[val_idx].numpy()
+
+    X_val_flat = np.reshape(X_val, (X_val.shape[0], -1))
+    X_train_flat= np.reshape(X_train, (X_train.shape[0], -1))
+    y_train_flat = y_train.reshape(-1,)
+    y_val_flat = y_val.reshape(-1,)
+
+    print('Train size: ', X_train_flat.shape)
+    print('Validation size:', X_val_flat.shape)
+
+    # Train the model
+    watchlist = [(X_train_flat, y_train), (X_val_flat, y_val)]
+    clf = xgb.XGBClassifier(**params)
+    clf.fit(X_train_flat, y_train, eval_set=watchlist, verbose=False)
+
+    # Evaluate the model's performance on Test Data
+    y_pred = clf.predict(X_test_flat)
+    accuracy = accuracy_score(y_test, y_pred)
+    confusion = confusion_matrix(y_test, y_pred)
+    classification_rep = classification_report(y_test, y_pred)
+
+    # Get training accuracy
+    y_train_pred = clf.predict(X_train_flat)
+    y_val_pred = clf.predict(X_val_flat)
+    train_accuracy = accuracy_score(y_train, y_train_pred)
+    val_accuracy = accuracy_score(y_val, y_val_pred)
+
+    test_accs.append(accuracy)
+    val_accs.append(val_accuracy)
+    train_accs.append(train_accuracy)
+
+    print("Test Accuracy:", accuracy)
+    print("Validation Accuracy:", val_accuracy)
+    print("Train Accuracy:", train_accuracy)
+    print("Confusion Matrix:\n", confusion)
+    print("Classification Report:\n", classification_rep)
+    results = clf.evals_result()
+
+    # Extract log loss values from evals_result
+    train_loss = results['validation_0']['logloss']
+    val_loss = results['validation_1']['logloss']
+
+    # Plotting Results
+    plt.figure(figsize=(8, 4))
+    plt.plot(train_loss, label='Training')
+    plt.plot(val_loss, label='Validation')
+    plt.xlabel('Boosting Rounds')
+    plt.ylabel('Log Loss')
+    plt.title(f'XGBoost Loss Curves for Binary Classification (Fold {fold+1})')
+    plt.legend()
+    plt.savefig(f'{save_loss}xgb_loss_fold{fold + 1}.png', dpi=400)
+
+    classes = ['Stable', 'Tumbling']
+    plt.figure(figsize=(8,6))
+    sns.heatmap(confusion, annot=True, fmt='d', cmap='Blues', xticklabels=classes, yticklabels=classes)
+    plt.xlabel('Predicted Labels')
+    plt.ylabel('True Labels')
+    plt.title(f'XGBoost Attitude Classification Results (fold {fold+1})')#  (with t-SNE Reduction)')
+    plt.savefig(f'{save_conf}xgb_conf_fold{fold + 1}.png', dpi=400)
+
 end = time.time()
-print('XGBoost Model took {:.2f} seconds to train'.format(end - start))
 
-# Evaluate the model's performance on Test Data
-y_pred = clf.predict(X_test_flat)
-accuracy = accuracy_score(y_test, y_pred)
-confusion = confusion_matrix(y_test, y_pred)
-classification_rep = classification_report(y_test, y_pred)
+print('---------------------------------- 5-Fold Cross Validation Complete ----------------------------------')
+print('Train Accuracies:')
+print(train_accs)
+print('Validation Accuracies:')
+print(val_accs)
+print('Test Accuracies:')
+print(test_accs)
 
-# Get training accuracy
-y_train_pred = clf.predict(X_train_flat)
-y_val_pred = clf.predict(X_val_flat)
-train_accuracy = accuracy_score(y_train, y_train_pred)
-val_accuracy = accuracy_score(y_val, y_val_pred)
+avg_test = np.mean(test_accs)
+avg_val = np.mean(val_accs)
+print(f'Average test accuracy: {avg_test}')
+print(f'Average validation accuracy: {avg_val}')
 
-print("Test Accuracy:", accuracy)
-print("Validation Accuracy:", val_accuracy)
-print("Train Accuracy:", train_accuracy)
-print("Confusion Matrix:\n", confusion)
-print("Classification Report:\n", classification_rep)
-results = clf.evals_result()
+print('5 Fold Cross Validation takes {:.2f} seconds to complete'.format(end - start))
 
-# Extract log loss values from evals_result
-train_loss = results['validation_0']['logloss']
-val_loss = results['validation_1']['logloss']
 
-# Plotting Results
-plt.figure(figsize=(8, 4))
-plt.plot(train_loss, label='Training')
-plt.plot(val_loss, label='Validation')
-plt.xlabel('Boosting Rounds')
-plt.ylabel('Log Loss')
-plt.title(f'XGBoost Loss Curves for Binary Classification')
-plt.legend()
-plt.savefig(f'{save_loc}xgb_loss_{label}_bad.png', dpi=400)
-
-classes = ['Stable', 'Tumbling']
-plt.figure(figsize=(8,6))
-sns.heatmap(confusion, annot=True, fmt='d', cmap='Blues', xticklabels=classes, yticklabels=classes)
-plt.xlabel('Predicted Labels')
-plt.ylabel('True Labels')
-plt.title(f'XGBoost Attitude Classification Results')#  (with t-SNE Reduction)')
-plt.savefig(f'{save_loc}xgb_conf_{label}_bad.png', dpi=400)
 
 '''
 # Plot feature importance ------------------------------------------------

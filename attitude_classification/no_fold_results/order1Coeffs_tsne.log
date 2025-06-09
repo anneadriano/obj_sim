@@ -1,0 +1,26 @@
+(6566, 30, 19)
+Smallest class size: 3265
+(6530, 30, 19)
+(6530,)
+Shape after tsne: (6530, 3)
+Train size:  (5224, 3)
+Validation size: (653, 3)
+Test size: (653, 3)
+Training XGBoost model...
+XGBoost Model took 8.41 seconds to train
+Test Accuracy: 0.8606431852986217
+Validation Accuracy: 0.8437978560490046
+Train Accuracy: 0.8935681470137825
+Confusion Matrix:
+ [[271  74]
+ [ 17 291]]
+Classification Report:
+               precision    recall  f1-score   support
+
+           0       0.94      0.79      0.86       345
+           1       0.80      0.94      0.86       308
+
+    accuracy                           0.86       653
+   macro avg       0.87      0.87      0.86       653
+weighted avg       0.87      0.86      0.86       653
+

@@ -1,0 +1,110 @@
+(6566, 300)
+Smallest class size: 3265
+(6530, 300)
+(6530,)
+Test size: (1306, 300)
+---------------------------------- Fold 1 ----------------------------------
+Train size:  (4179, 300)
+Validation size: (1045, 300)
+Test Accuracy: 0.7274119448698315
+Validation Accuracy: 0.7263157894736842
+Train Accuracy: 0.9365877004067958
+Confusion Matrix:
+ [[537  98]
+ [258 413]]
+Classification Report:
+               precision    recall  f1-score   support
+
+           0       0.68      0.85      0.75       635
+           1       0.81      0.62      0.70       671
+
+    accuracy                           0.73      1306
+   macro avg       0.74      0.73      0.72      1306
+weighted avg       0.74      0.73      0.72      1306
+
+---------------------------------- Fold 2 ----------------------------------
+Train size:  (4179, 300)
+Validation size: (1045, 300)
+Test Accuracy: 0.7281776416539051
+Validation Accuracy: 0.7291866028708134
+Train Accuracy: 0.9385020339794209
+Confusion Matrix:
+ [[532 103]
+ [252 419]]
+Classification Report:
+               precision    recall  f1-score   support
+
+           0       0.68      0.84      0.75       635
+           1       0.80      0.62      0.70       671
+
+    accuracy                           0.73      1306
+   macro avg       0.74      0.73      0.73      1306
+weighted avg       0.74      0.73      0.73      1306
+
+---------------------------------- Fold 3 ----------------------------------
+Train size:  (4179, 300)
+Validation size: (1045, 300)
+Test Accuracy: 0.718989280245023
+Validation Accuracy: 0.7282296650717703
+Train Accuracy: 0.9375448671931084
+Confusion Matrix:
+ [[533 102]
+ [265 406]]
+Classification Report:
+               precision    recall  f1-score   support
+
+           0       0.67      0.84      0.74       635
+           1       0.80      0.61      0.69       671
+
+    accuracy                           0.72      1306
+   macro avg       0.73      0.72      0.72      1306
+weighted avg       0.74      0.72      0.72      1306
+
+---------------------------------- Fold 4 ----------------------------------
+Train size:  (4179, 300)
+Validation size: (1045, 300)
+Test Accuracy: 0.7289433384379785
+Validation Accuracy: 0.7272727272727273
+Train Accuracy: 0.9444843263938741
+Confusion Matrix:
+ [[531 104]
+ [250 421]]
+Classification Report:
+               precision    recall  f1-score   support
+
+           0       0.68      0.84      0.75       635
+           1       0.80      0.63      0.70       671
+
+    accuracy                           0.73      1306
+   macro avg       0.74      0.73      0.73      1306
+weighted avg       0.74      0.73      0.73      1306
+
+---------------------------------- Fold 5 ----------------------------------
+Train size:  (4180, 300)
+Validation size: (1044, 300)
+Test Accuracy: 0.7281776416539051
+Validation Accuracy: 0.7078544061302682
+Train Accuracy: 0.942822966507177
+Confusion Matrix:
+ [[534 101]
+ [254 417]]
+Classification Report:
+               precision    recall  f1-score   support
+
+           0       0.68      0.84      0.75       635
+           1       0.81      0.62      0.70       671
+
+    accuracy                           0.73      1306
+   macro avg       0.74      0.73      0.73      1306
+weighted avg       0.74      0.73      0.73      1306
+
+---------------------------------- 5-Fold Cross Validation Complete ----------------------------------
+Train Accuracies:
+[0.9365877004067958, 0.9385020339794209, 0.9375448671931084, 0.9444843263938741, 0.942822966507177]
+Validation Accuracies:
+[0.7263157894736842, 0.7291866028708134, 0.7282296650717703, 0.7272727272727273, 0.7078544061302682]
+Test Accuracies:
+[0.7274119448698315, 0.7281776416539051, 0.718989280245023, 0.7289433384379785, 0.7281776416539051]
+Average test accuracy: 0.7263399693721286
+Average validation accuracy: 0.7237718381638528
+5 Fold Cross Validation takes 334.68 seconds to complete

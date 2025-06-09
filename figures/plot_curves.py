@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import math
+import time
+
 
 def plots(phases, ranges, mags, frames, track_num):
     # Create a figure with two subplots
