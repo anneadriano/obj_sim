@@ -141,7 +141,7 @@ def tsne_reduction(X, y):
 track_length = 300
 test_size = 0.1
 att_type = 'allRegimes'
-lc_type = 'allCoeffs' #raw, coeffs, order1
+lc_type = 'order1Coeffs' #raw, coeffs, order1
 tsne = True
 
 params = {'objective':'binary:logistic',
@@ -186,8 +186,8 @@ X, y = build_dataset(catalogue, all_data)
 
 if tsne:
     #bringin tsne np array
-    # X = tsne_reduction(X, y)
-    np.load(lc_stack_folder + f'tsne_{track_length}_{att_type}_{lc_type}.npy')
+    X = tsne_reduction(X, y)
+    np.save(lc_stack_folder + f'tsne_{track_length}_{att_type}_{lc_type}.npy', X)
     # X = np.load(f'/home/anne/scripts/obj_sim/stacked_data/tsne_{track_length}_{att_type}_{lc_type}.npy')
 
 print(X.shape)
